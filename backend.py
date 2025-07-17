@@ -64,7 +64,7 @@ async def chat(request: Request, key: str = Depends(verify_key)):
     payload = {"model": MODEL, "messages": messages}
 
     # 调用上游大模型
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(f"https://{AI_HOST}{AI_PATH}",
                               json=payload, headers=headers)
         if r.status_code != 200:
