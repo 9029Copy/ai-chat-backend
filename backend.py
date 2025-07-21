@@ -17,12 +17,12 @@ with open(CONFIG_FILE, encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
 VALID_KEYS  = set(cfg["api_keys"])
-AI_SCHEME   = cfg["ai_api_scheme"]
-AI_HOST     = cfg["ai_api_host"]
-AI_PORT     = cfg["ai_api_port"]
-AI_PATH     = cfg["ai_api_path"]
+AI_SCHEME   = cfg.get("ai_api_scheme", "https")
+AI_HOST     = cfg.get("ai_api_host", "api.siliconflow.cn")
+AI_PORT     = cfg.get("ai_api_port", 443)
+AI_PATH     = cfg.get("ai_api_path", "/v1/chat/completions")
 AI_TOKEN    = cfg["ai_api_token"]
-MODEL       = cfg["ai_model"]
+MODEL       = cfg.get("ai_model", "THUDM/GLM-4-9B-0414")
 MAX_HISTORY = cfg.get("max_history", 5)
 
 # -------------------------------------------------
@@ -47,8 +47,13 @@ def verify_key(creds: HTTPAuthorizationCredentials = Depends(security)):
 @app.post("/chat", response_class=PlainTextResponse)
 async def chat(request: Request, key: str = Depends(verify_key)):
     # 读取原始文本
-    body = await request.body()
-    question = body.decode().strip()
+    try:
+        json_data = await request.json()
+        question = json_data['question'].strip()
+        model = json_data.get('model', MODEL)
+    except (json.JSONDecodeError, KeyError):
+        raise HTTPException(status_code=400, detail="Invalid JSON format")
+
     if not question:
         raise HTTPException(status_code=400, detail="Empty question")
 
@@ -61,7 +66,7 @@ async def chat(request: Request, key: str = Depends(verify_key)):
         "Authorization": f"Bearer {AI_TOKEN}",
         "Content-Type": "application/json"
     }
-    payload = {"model": MODEL, "messages": messages}
+    payload = {"model": model, "messages": messages}
 
     # 调用上游大模型
     async with httpx.AsyncClient(timeout=60) as client:
@@ -69,11 +74,19 @@ async def chat(request: Request, key: str = Depends(verify_key)):
                               json=payload, headers=headers)
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail="Upstream error")
-        answer = r.json()["choices"][0]["message"]["content"]
+
+        content = r.json()["choices"][0]["message"]["content"]
+        response_data = {
+            "content": content,
+            "reasoning_content": r.json()["choices"][0]["message"].get("reasoning_content", ""),
+            "total_tokens": r.json()["usage"]["total_tokens"]
+        }
+            
+        answer = json.dumps(response_data, ensure_ascii=False)
 
     # 更新会话历史
     history.append(("user", question))
-    history.append(("assistant", answer))
+    history.append(("assistant", content))
 
     return answer     # FastAPI 自动按 text/plain 返回
 
