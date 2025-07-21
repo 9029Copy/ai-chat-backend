@@ -53,84 +53,35 @@
     ```bash
     python backend.py
     ```
-2. 服务将运行在`http://0.0.0.0:8000`
+2. 服务将运行在`http://0.0.0.0:8000`。
 
-## 七、API文档
-### 聊天接口
-- 地址：`/chat`
-- 方法：POST
-- 授权：Bearer Token（在请求头中添加`Authorization: Bearer <your_api_key>`）
+3. 建议使用httpx.post对`/chat`接口进行调用，请求体示例如下：
+    ```python
+    import httpx
 
-示例请求：
-```bash
-curl -X POST http://localhost:8000/chat \
-  -H "Authorization: Bearer <your_api_key>" \
-  -d "Hello World!"
-```
+    url = "http://0.0.0.0:8000"
+    data = {
+        "question": "你好",
+        "model": "Qwen/QwQ-32B"
+    }
+    headers = {
+        "Authorization": "Bearer <your_api_key>",
+        "Content-Type": "application/json"
+    }
 
-## 八、客户端使用示例
-### 1、客户端程序
-以下是一个可行的Python客户端程序示例，可用于与后端服务器交互：
-
-```python
-import argparse, httpx, sys, json, os
-import json
-
-CONFIG_FILE = "config.json"
-with open(CONFIG_FILE, encoding="utf-8") as f:
-    cfg = json.load(f)
-
-def chat_once(q, key, url):
-    headers = {"Authorization": f"Bearer {key}", "Content-Type": "text/plain"}
-    r = httpx.post(f"{url}/chat", content=q, headers=headers, timeout=60)
-    r.raise_for_status()
-    return r.text
-
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("question")
-    p.add_argument("-k", "--key", required=True)
-    p.add_argument("--host", default=cfg["host"])
-    p.add_argument("--port", type=int, default=cfg["port"])
-    p.add_argument("--scheme", default=cfg["scheme"])
-    args = p.parse_args()
-
-    answer = chat_once(args.question, args.key, f"{args.scheme}://{args.host}:{args.port}")
-    print(answer)
-
-if __name__ == "__main__":
-    main()
-```
-
-### 2、客户端配置
-在客户端程序所在目录创建`config.json`文件，内容格式如下：
-```json
-{
-    "scheme": "http",
-    "host": "localhost",
-    "port": 8000,
-}
-```
-参数可根据实际情况稍作调整。
-
-### 3、客户端使用方法
-1. 安装依赖：
-    ```bash
-    pip install httpx
+    response = httpx.post(f"{url}/chat", json=data, headers=headers)
+    print(response.json())
     ```
-2. 运行客户端程序：
-    ```bash
-    python client.py -k <your_api_key> "你好，世界！" --scheme <http> --host <localhost> --port <8000>
+4. 响应体格式如下：
+    ```json
+    response_data = {
+        "content": "你好",
+        "reasoning_content": "你好",
+        "total_tokens": 123
+    }
     ```
-    将其中<>部分替换为实际值：
-    - `<your_api_key>`：替换为实际的访问密钥
-    - `"你好，世界！"`：替换为要发送的问题
-    - `<http>`：替换为API协议（默认`http`）
-    - `<localhost>`：替换为API主机名（默认`localhost`）
-    - `<8000>`：替换为API端口号（默认`8000`）
-    
-    **注意：-k部分与问题不可省略，其余参数可省略，省略时使用默认值。**
-## 九、注意事项
+
+## 七、注意事项
 - 确保配置文件中的参数与实际情况相符，同时配置文件与程序位于同一目录下，否则将无法正常调用上游AI服务。
 - 会话历史存储在内存中，服务重启后会丢失所有历史对话记录。
 - API密钥应妥善保管，避免泄露给未授权用户，以防滥用。
