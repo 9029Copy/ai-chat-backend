@@ -9,6 +9,7 @@ import os
 from collections import deque, defaultdict
 import yaml
 
+
 # -------------------------------------------------
 # 读取统一配置文件
 # -------------------------------------------------
@@ -89,6 +90,17 @@ async def chat(request: Request, key: str = Depends(verify_key)):
     history.append(("assistant", content))
 
     return answer     # FastAPI 自动按 text/plain 返回
+
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # 允许前端访问
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # -------------------------------------------------
 # 启动入口
